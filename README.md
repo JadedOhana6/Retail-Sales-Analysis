@@ -1,9 +1,9 @@
-# Customers & Products Analysis Using SQL & PowerBI
+# Retail Sales Analysis using Postgres SQL. Viz on PowerBI
 
 ## Table of Contents
-- [Project Overview](#project-overview)
+-	[Project Overview](#project-overview)
 - [Tools Used](#tools-used)
-- [Data_Source](#data-source)
+- [Data_Source & Tables](#data-source-and-tables)
 - [Data Cleaning & Preparation](#data-cleaning-and-preparation)
 - [Exploratory Analysis](#exploratory-analysis)
 - [Interesting codes](#interesting-codes)
@@ -12,32 +12,32 @@
 - [Limitations](#limitations)
 
 ### Project Overview
-This analysis aims to provide insights into the sales & employee performance of a car sales company, over a few years. 
+This analysis aims to provide insights regarding the sales performance of a retail store.
 
 ### Tools Used
-1. Postgresql for analysis
+1. Postgresql for cleaning and analysis
 2. PowerBI for visualization
 
-### Data Source
-
+### Data Source and Tables
+[Kaggle - Dirty for Data Cleaning](https://www.kaggle.com/datasets/ahmedmohamed2003/retail-store-sales-dirty-for-data-cleaning/data)
+- retailsales
+- EHE category (scraped from Kaggle using [Instant Data Scraper](https://chromewebstore.google.com/detail/instant-data-scraper/ofaokhiedipichpaobibbnahnkdoiiah))
+- FUR category (scraped from Kaggle page using [Instant Data Scraper](https://chromewebstore.google.com/detail/instant-data-scraper/ofaokhiedipichpaobibbnahnkdoiiah))
+- 6 other category tables are not available, but they all share the same pattern as the existing 2. 
 
 ### Data Cleaning and Preparation
 The following tasks were performed:
-1. Data conversion online to csv
-2. Data inspection and loading
+1. Used GEMINI's help to write query for the category tables
+2. Checked for duplicates, handle missing data and inconsistent formating
 
 ### Exploratory Analysis
-1. Top performing products by quantity and profit.
-2. Any peak periods/sales trends?
-3. Which products should we order more of or less of?
+1. Sales trend over time
+2. Which products should we order more of or less of?
 - Analysis method: Priority products for restocking by:
   - product demand = SUM (quantityOrdered)/quantityInStock
   - product performance =SUM(quantityOrdered×priceEach)
-4. How should we tailor marketing and communication strategies to customer behaviors?
-  - Analysis method: find the top spending and bottom spending customers. 
-5. How much can we spend on acquiring customers?
+3. How much can we spend on acquiring customers?
   - Analysis method: Customer Lifetime Value (LTV), which represents the average amount of money a customer generates
-6. What is the sales team performance?
 
 ### Interesting codes
 
@@ -46,3 +46,5 @@ The following tasks were performed:
 ## Recommendations
 
 ## Limitations
+1. Unable to determine the effectiveness of discounts. The Discount Applied column in the retailsales table is missing data, and the table does not record any price changes upon discount. 
+2. No item name, but this will just affect the visuals. We are still able to use item code for analysis instead.
