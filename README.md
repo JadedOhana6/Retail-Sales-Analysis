@@ -25,12 +25,12 @@ This analysis aims to provide insights regarding the sales performance of a reta
 - FUR category (scraped from Kaggle page using [Instant Data Scraper](https://chromewebstore.google.com/detail/instant-data-scraper/ofaokhiedipichpaobibbnahnkdoiiah))
 - 6 other category tables are not available, but they all share the same pattern as the existing 2. 
 
-### Data Cleaning and Preparation
+## Data Cleaning and Preparation
 The following tasks were performed:
 1. Used GEMINI's help to write query for the category tables
 2. Checked for duplicates, handle missing data and inconsistent formating
 
-### Exploratory Analysis
+## Exploratory Analysis
 1. Sales trend over time
 2. Which products should we order more of or less of?
 - Analysis method: Priority products for restocking by:
@@ -39,9 +39,9 @@ The following tasks were performed:
 3. How much can we spend on acquiring customers?
   - Analysis method: Customer Lifetime Value (LTV), which represents the average amount of money a customer generates
 
-### Interesting codes
-
 ### Results and Findings
+
+## Interesting codes
 
 ## Recommendations
 
