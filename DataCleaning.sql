@@ -1,6 +1,6 @@
 --Retail Store Sales// Data Cleaning
 -- available files: retailsales (retailsales.csv), categories (EHE.csv, FUR.csv)
--- retailsales has missing data in the category column (part of the cleaning task), but are only 2 category tables and 8 distinct categories. 
+-- retailsales has missing data in the category column (part of the cleaning task), but are only 2 category tables and 9 distinct categories. 
 -- Author has confirmed that the other 6 category tables follow the same pattern as existing 2.
 
 --1. Add all tables into pgadmin. Combined category tables into 1. 
@@ -33,46 +33,47 @@ FROM
     SourceData sd
 CROSS JOIN
     Suffixes s;
--- add itemcategory column data from retailsales table
-UPDATE categories
-SET itemcategory = retailsales.category
-FROM retailsales
-WHERE itemcode = retailsales.item
 
---2.Create stg_categories, remove duplicates in stg_categories
+
+--2.REMOVE DUPLICATES
+--Create stg_categories & rownum
 CREATE TABLE stg_categories AS (
 	SELECT *,
 	ROW_NUMBER () OVER ( PARTITION BY itemcode) AS rownum
 	FROM categories
 	);
--- Remove duplicates
-DELETE FROM stg_categories
-WHERE rownum >1;
 -- Drop rownum column
 ALTER TABLE stg_categories
 DROP COLUMN rownum;
 
---3. Create stg_retailsales, remove duplicates in stg_retailsales
+--Create stg_retailsales
 CREATE TABLE stg_retailsales AS
-SELECT *
-    NOW() AS load_timestamp,
-    'NA' AS source_system_name
-FROM retailsales;
--- Used transactionid to check for duplicates. 
-WITH dupecheck AS(
 SELECT *,
-ROW_NUMBER() OVER (PARTITION BY transactionid ) AS rownum
-FROM stg_retailsales
-)
+    NOW() AS load_timestamp,
+    'NA' AS source_system_name,
+    ROW_NUMBER() OVER (PARTITION BY transactionid ) AS rownum
+FROM retailsales;
+-- add rownum
 SELECT *
-FROM dupecheck
+FROM stg_retailsales
 WHERE rownum > 1;
 --//--//-- no duplicates found
 
 -- 4. Standardizing Data
--- Create another staging table
+-- Create another staging table for retailsales
 CREATE TABLE stg2_retailsales AS
-    SELECT *
+    SELECT 
+    	transactionid,
+        customerid,
+        category,
+        item,
+        priceperunit,
+        quantity,
+        totalspent,
+        paymentmethod,
+        location,
+        transactiondate,
+	    discountapplied,
         NOW() AS load_timestamp,
         'NA' AS source_system_name
     FROM stg_retailsales;
@@ -95,32 +96,46 @@ WHERE
     paymentmethod LIKE ' %' OR paymentmethod LIKE '% ' OR 
     location LIKE ' %' OR location LIKE '% ' OR 
     discountapplied LIKE ' %' OR discountapplied LIKE '% ';
--- Check category column for similar records (ie milk & dairy).
+-- Create another staging table for categories table
+CREATE TABLE stg2_categories AS
+SELECT
+    itemcode,
+    itemname,
+    price,
+    NOW() AS load_timestamp,
+    'NA' AS source_system_name
+FROM stg_categories;
+-- trim text columns
+UPDATE stg2_categories
+SET 
+    itemcode = TRIM(itemcode),
+    itemname = TRIM(itemname)
+WHERE 
+    itemcode LIKE '% ' OR itemcode LIKE ' %' OR
+    itemname LIKE '% ' OR itemname LIKE ' %';
+-- Check for text columns in stg_retailsales for records that can be groupped together. (ie ewallet & GooglePay)
+-- category column
 SELECT DISTINCT(category)
 FROM stg2_retailsales
 ORDER BY category;
--- Check category paymentmethod for similar records
+-- paymentmethod
 SELECT DISTINCT(paymentmethod)
 FROM stg2_retailsales;
--- Check category location for similar records
+-- location
 SELECT DISTINCT(location)
 FROM stg2_retailsales;
--- Check item paymentmethod for similar records
+-- item
 SELECT DISTINCT (item)
 FROM stg2_retailsales
 ORDER BY item;
--- Check discountapplied paymentmethod for similar records
+-- discountapplied
 SELECT DISTINCT (discountapplied)
 FROM stg2_retailsales;
----//---//-- No similar records. But mispelling and nulls spotted.
+---//---//-- No similar records. But mispellings.
 -- Change spelling. stg2_retailsales.category: "Milk Products" = "Milk products"
 UPDATE stg2_retailsales
 SET category = 'Milk products'
 WHERE category = 'Milk Products';
--- change spelling. stg_items.itemcategory: "Milk Products" = "Milk products"
-UPDATE stg_categories
-SET itemcategory = 'Milk products'
-WHERE itemcategory = 'Milk Products';
 -- 4.3 changed 'quantity' col type to INTEGER
 ALTER TABLE stg2_retailsales
 ALTER COLUMN quantity TYPE INTEGER
@@ -143,44 +158,48 @@ SELECT
 FROM
     stg2_retailsales;
 --//--//-- Found columns with null. (item, priceperunit, quantity, totalspent)
--- Replace null values in stg2_retailsales, by creating stg3_retailsales.
-CREATE TABLE stg3_retailsales AS
-SELECT     
-	transactionid,
-    customerid,
-    category,
-    item,
-    priceperunit,
-    quantity,
-    totalspent,
-    paymentmethod,
-    location,
-    transactiondate,
-	discountapplied,
-	ROW_NUMBER() OVER (PARTITION BY transactionid ) AS rownum,
-    NOW() AS load_timestamp,
-    'NA' AS source_system_name 
+SELECT
+    COUNT(*) AS total_rows,
+    COUNT(CASE WHEN itemcode IS NULL THEN 1 END) AS itemcode,
+    COUNT(CASE WHEN itemname IS NULL THEN 1 END) AS itemname,
+    COUNT(CASE WHEN price IS NULL THEN 1 END) AS price
+FROM
+    stg2_categories;
+--//--//-- Found column with null. (price)
+--5.2 fill columns
+-- addcol stg2_categories.itemcategory
+ALTER TABLE stg2_categories
+ADD COLUMN itemcategory text;
+-- update stg2_categories.itemcategory
+UPDATE stg2_categories
+SET itemcategory = stg2_retailsales.category
 FROM stg2_retailsales
---update 'priceperunit'
-UPDATE stg3_retailsales
-SET priceperunit = stg_categories.price
-FROM stg_categories
-WHERE priceperunit IS NULL;
---update 'quantity'
-UPDATE stg3_retailsales
+WHERE itemcode = stg2_retailsales.item
+-- check for any nulls in stg2_categories.itemcategory
+SELECT
+    COUNT(CASE WHEN itemcategory IS NULL THEN 1 END) AS itemcategory_nullcount,
+    COUNT(CASE WHEN itemcode IS NULL THEN 1 END)AS itemcode_nullcount,
+    COUNT (CASE WHEN price IS NULL THEN 1 END) AS price_nullcount
+FROM stg2_categories;
+--update stg2_retailsales.quantity
+UPDATE stg2_retailsales
 SET quantity = totalspent / priceperunit
 WHERE quantity IS NULL;
---update 'totalspent'
-UPDATE stg3_retailsales
+--update stg2_retailsales.totalspent
+UPDATE stg2_retailsales
 SET totalspent = priceperunit * quantity
 WHERE totalspent IS NULL;
---update 'item'
-UPDATE stg3_retailsales
-SET item = stg_categories.itemcode
-FROM stg_categories
-WHERE stg3_retailsales.item IS NULL 
-	AND stg_categories.price = stg3_retailsales.priceperunit
-	AND stg_categories.itemcategory = stg3_retailsales.category ;
+-- update stg2_retailsales.priceperunit
+UPDATE stg_retailsales 
+SET priceperunit = totalspent/quantity
+WHERE priceperunit IS NULL
+--update stg2_retailsales.item
+UPDATE stg2_retailsales AS r
+SET item = c.itemcode
+FROM stg2_categories AS c
+WHERE r.priceperunit = c.price
+AND r.category = c.itemcategory
+AND r.item IS NULL
 --check for nulls again
 SELECT
     COUNT(*) AS total_rows,
@@ -196,27 +215,42 @@ SELECT
     COUNT(CASE WHEN transactiondate IS NULL THEN 1 END) AS transactiondate,
     COUNT(CASE WHEN discountapplied IS NULL THEN 1 END) AS discountapplied
 FROM
-    stg3_retailsales;
+    stg2_retailsales;
 --same number of nulls were found in quantity and total spent column. 
 SELECT
     COUNT (CASE WHEN quantity IS NULL THEN 1 END) AS quant_null,
     COUNT (CASE WHEN totalspent IS NULL THEN 1 END) AS totalspent_null,
     COUNT (CASE WHEN quantity IS NULL or totalspent is null then 1 end) as OR,
     COUNT (CASE WHEN quantity IS NULL AND totalspent IS NULL then 1 end) AS AND
-FROM stg3_retailsales
---Records showing null in quantity also show null in total spent.
+FROM stg2_retailsales
+--Records showing nulls for both columns in the AND section of the query. 
 
 -- 6. Check relevance of discountapplied column, using retailsales original table
 --Check if discountapplied = TRUE, totalspent/quantity <> priceperunit
 SELECT *
-FROM retailsales
-WHERE discountapplied LIKE 'True' AND totalspent/quantity <> priceperunit;
---//--//-- no records shown.
---Check if priceperunit is already discounted
-SELECT *
-FROM retailsales
-WHERE discountapplied LIKE 'True'
-ORDER BY item;
---//--//-- scanning through, prices no different from discountapplied = 'False' or null
-
-------- data cleaning completed -----
+FROM stg2_retailsales
+WHERE discountapplied LIKE 'TRUE' AND totalspent/quantity <> priceperunit;
+--//--//-- The output shows that totalspent/quantity <> priceperunit  = discountapplied TRUE
+--//--//--priceperunit / totalspent does not show whether discount was used. 
+-- Check if discountapplied is affected by item
+SELECT
+item
+FROM stg2_retailsales
+GROUP BY item
+HAVING COUNT (CASE WHEN discountapplied LIKE 'TRUE' THEN 1 END) = 0 
+	OR COUNT (CASE WHEN discountapplied LIKE 'FALSE' THEN 1 END) = 0
+--//--//-- The output shows not affected
+-- Check if discountapplied is affected by transaction date range
+SELECT
+MAX (transactiondate),
+MIN (transactiondate)
+FROM stg2_retailsales
+WHERE discountapplied LIKE 'TRUE'
+;
+SELECT
+MAX (transactiondate),
+MIN (transactiondate)
+FROM stg2_retailsales
+WHERE discountapplied LIKE 'FALSE'
+;
+--//--//-- discountapplied is not affected by transactiondate
