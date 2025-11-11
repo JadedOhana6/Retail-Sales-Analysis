@@ -46,6 +46,5 @@ The following tasks were performed:
 ## Recommendations
 
 ## Limitations
-1. Unable to determine the effectiveness of discounts. The Discount Applied column in the retailsales table is missing data, and the table does not record any price changes upon discount. 
-2. No item name, but this will just affect the visuals. We are still able to use item code for analysis instead.
-3. There are 640 records in retailsales table without quantity and totalspent records. Sales analysis excludes these columns
+1. The Discount Applied column in the retailsales table is missing data, it is not related to the items, transaction date or payment methods. It is possible that the table does not record price changes upon discount. 
+3. There are 640 records in retailsales table without quantity and totalspent records.
