@@ -39,12 +39,6 @@ The following tasks were performed:
 3. How much can we spend on acquiring customers?
   - Analysis method: Customer Lifetime Value (LTV), which represents the average amount of money a customer generates
 
-### Results and Findings
-
-## Interesting codes
-
-## Recommendations
-
 ## Limitations
 1. The Discount Applied column in the retailsales table is missing data, it is not related to the items, transaction date or payment methods. It is possible that the table does not record price changes upon discount. 
 3. There are 640 records in retailsales table without quantity and totalspent records.
